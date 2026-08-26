@@ -44,6 +44,10 @@ def get_task(id: int):
 class TaskCreate(BaseModel):
     title: str | None = None
 
+class TaskUpdate(BaseModel):
+    title: str | None = None
+    done: bool | None = None
+
 @app.post("/tasks", status_code=201)
 def create_task(task: TaskCreate):
     if not task.title or not task.title.strip():
@@ -60,3 +64,44 @@ def create_task(task: TaskCreate):
 
     tasks.append(new_task)
     return new_task
+
+@app.put("/tasks/{id}")
+def update_task(id: int, task_update: TaskUpdate):
+
+    if task_update.title is None and task_update.done is None:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "at least one field is required"}
+        )
+
+    for task in tasks:
+        if task["id"] == id:
+            if task_update.title is not None:
+                if not task_update.title.strip():
+                    return JSONResponse(
+                        status_code=400,
+                        content={"error": "title cannot be empty"}
+                    )
+                task["title"] = task_update.title
+
+            if task_update.done is not None:
+                task["done"] = task_update.done
+
+            return task
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {id} not found"}
+    )
+
+@app.delete("/tasks/{id}", status_code=204)
+def delete_task(id: int):
+    for task in tasks:
+        if task["id"] == id:
+            tasks.remove(task)
+            return
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {id} not found"}
+    )
