@@ -26,5 +26,5 @@ The API manages a to-do task list using in-memory storage.
 Clone the repository:
 
 ```bash
-git clone YOUR_GITHUB_REPOSITORY_URL
+git clone https://github.com/arkankalevi/flyrank-crud-api
 cd flyrank-crud-api
