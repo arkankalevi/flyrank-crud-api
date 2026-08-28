@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from database import initialize_database, get_all_tasks, get_task_by_id, create_task
+from database import initialize_database, get_all_tasks, get_task_by_id, create_task, update_task, delete_task 
 
 app = FastAPI()
 
@@ -62,7 +62,7 @@ def create_task_endpoint(task: TaskCreate):
     return create_task(task.title)
 
 @app.put("/tasks/{id}", description="Updates an existing task.")
-def update_task(id: int, task_update: TaskUpdate):
+def update_task_endpoint(id: int, task_update: TaskUpdate):
 
     if task_update.title is None and task_update.done is None:
         return JSONResponse(
@@ -70,34 +70,39 @@ def update_task(id: int, task_update: TaskUpdate):
             content={"error": "at least one field is required"}
         )
 
-    for task in tasks:
-        if task["id"] == id:
-            if task_update.title is not None:
-                if not task_update.title.strip():
-                    return JSONResponse(
-                        status_code=400,
-                        content={"error": "title cannot be empty"}
-                    )
-                task["title"] = task_update.title
+    if task_update.title is not None:
+        if not task_update.title.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"error": "title cannot be empty"}
+            )
 
-            if task_update.done is not None:
-                task["done"] = task_update.done
-
-            return task
-
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    updated_task = update_task(
+        id,
+        task_update.title,
+        task_update.done
     )
 
-@app.delete("/tasks/{id}", status_code=204, description="Deletes a task by its ID.")
-def delete_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            tasks.remove(task)
-            return
+    if updated_task is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
 
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
-    )
+    return updated_task
+@app.delete(
+    "/tasks/{id}",
+    status_code=204,
+    description="Deletes a task by its ID."
+)
+def delete_task_endpoint(id: int):
+
+    deleted = delete_task(id)
+
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    return

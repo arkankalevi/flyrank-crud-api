@@ -97,3 +97,61 @@ def create_task(title):
         "title": title,
         "done": False
     }
+
+def update_task(task_id, title=None, done=None):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    if title is not None and done is not None:
+        cursor.execute(
+            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+            (title, done, task_id)
+        )
+    elif title is not None:
+        cursor.execute(
+            "UPDATE tasks SET title = ? WHERE id = ?",
+            (title, task_id)
+        )
+    elif done is not None:
+        cursor.execute(
+            "UPDATE tasks SET done = ? WHERE id = ?",
+            (done, task_id)
+        )
+
+    if cursor.rowcount == 0:
+        connection.close()
+        return None
+
+    cursor.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    row = cursor.fetchone()
+
+    connection.commit()
+    connection.close()
+
+    return {
+        "id": row[0],
+        "title": row[1],
+        "done": bool(row[2])
+    }
+
+def delete_task(task_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        "DELETE FROM tasks WHERE id = ?",
+        (task_id,)
+    )
+
+    if cursor.rowcount == 0:
+        connection.close()
+        return False
+
+    connection.commit()
+    connection.close()
+
+    return True
