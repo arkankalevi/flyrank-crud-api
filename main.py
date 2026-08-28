@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-
+from database import initialize_database
 
 app = FastAPI()
+
+initialize_database()
 
 tasks = [
     {"id": 1, "title": "Learn FastAPI", "done": False},
