@@ -1,8 +1,8 @@
-# FlyRank W3 A1 — Connecting CRUD API to SQLite
+# FlyRank W3 A1 — Connecting CRUD API to PostgreSQL
 
 A CRUD API built with Python and FastAPI as part of the FlyRank AI Internship W3 A1 assignment.
 
-The API manages a to-do task list using a SQLite database for persistent storage.
+The API manages a to-do task list using PostgreSQL running in Docker for persistent storage.
 
 ## Features
 
@@ -15,21 +15,26 @@ The API manages a to-do task list using a SQLite database for persistent storage
 - 400 error handling
 - 404 error handling
 - Swagger UI documentation
-- SQLite database storage
-- Persistent data across server restarts
+- PostgreSQL database storage
+- Dockerized PostgreSQL
+- Persistent data across container and server restarts
 
 ## Tech Stack
 
 - Python 3.10+
 - FastAPI
-- SQLite
+- PostgreSQL
+- Docker
 - Uvicorn
 - Pydantic
+- Psycopg
+- python-dotenv
 
 ## Requirements
 
 - Python 3.10+
 - Git
+- Docker Desktop
 
 ## Installation
 
@@ -58,11 +63,49 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+DATABASE_URL=postgres://postgres:dev@localhost:5432/tasks
+   ```
+   
 ## Running the API
+
+### 1. Start PostgreSQL
+
+Make sure Docker Desktop is running.
+
+Start the PostgreSQL container:
+
+```powershell
+docker run --name taskdb -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=tasks -p 5432:5432 -v taskdata:/var/lib/postgresql/data -d postgres:17
+```
+
+Check that the PostgreSQL container is running:
+
+```powershell
+docker ps
+```
+
+The container should appear with the name:
+
+```text
+taskdb
+```
+
+### 2. Start the FastAPI server
+
+Activate the virtual environment:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
 Start the FastAPI server:
 
-```bash
+```powershell
 uvicorn main:app --reload
 ```
 
@@ -72,10 +115,36 @@ The API will be available at:
 http://127.0.0.1:8000
 ```
 
-Swagger UI is available at:
+### 3. Open Swagger UI
+
+Open the following URL in a browser:
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
+Swagger UI can be used to test all CRUD endpoints.
+
+### 4. Stop the API
+
+To stop the FastAPI server, press:
+
+```text
+CTRL + C
+```
+
+### 5. Stop PostgreSQL
+
+To stop the PostgreSQL container:
+
+```powershell
+docker stop taskdb
+```
+
+To start the existing PostgreSQL container again:
+
+```powershell
+docker start taskdb
 ```
 
 ## API Endpoints
@@ -90,25 +159,18 @@ http://127.0.0.1:8000/docs
 | PUT | `/tasks/{id}` | Updates an existing task |
 | DELETE | `/tasks/{id}` | Deletes a task |
 
-## SQLite Database
 
-This project uses SQLite as its database.
+## PostgreSQL Database
 
-SQLite was chosen because it is lightweight, does not require a separate database server, and stores the database in a single file.
+The application uses PostgreSQL as its persistent database.
 
-The database is automatically created when the application starts if it does not already exist.
+PostgreSQL runs inside a Docker container named `taskdb`.
 
-## Database Location
+The application connects to PostgreSQL using the `DATABASE_URL` environment variable from `.env`.
 
-The SQLite database file is:
+The PostgreSQL database is named `tasks`.
 
-```text
-tasks.db
-```
-
-It is stored in the project root directory.
-
-The `tasks.db` file is excluded from Git using `.gitignore`. When someone clones the repository and runs the application, the database and `tasks` table are automatically created.
+The database connection is handled in `database.py` using `psycopg`.
 
 ## Database Schema
 
@@ -116,64 +178,71 @@ The database contains a table named `tasks`.
 
 | Column | Type | Description |
 |---|---|---|
-| id | INTEGER | Primary key |
+| id | SERIAL | Primary key |
 | title | TEXT | Task title |
 | done | BOOLEAN | Completion status |
 
-The table is automatically created with:
+The table is automatically created when the application starts if it does not already exist.
+
+The SQL structure is:
 
 ```sql
 CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
-    done BOOLEAN NOT NULL DEFAULT 0
+    done BOOLEAN NOT NULL DEFAULT FALSE
 );
 ```
-
-## Database Viewer
-
-The SQLite database can be inspected using DB Browser for SQLite.
-
-The database contains the `tasks` table used by the API.
-
-![SQLite Database](database-screenshot.png)
-
-## Example SQL Query
-
-One SQL query used to retrieve all tasks is:
-
-```sql
-SELECT * FROM tasks;
-```
-
-This query returns every row from the `tasks` table.
-
-Another example is:
-
-```sql
-SELECT * FROM tasks WHERE done = 1;
-```
-
-This query returns only completed tasks.
-
 ## Persistence
 
-Unlike the previous in-memory implementation, tasks are now stored in SQLite.
+The PostgreSQL database uses a Docker volume named `taskdata` to persist data.
 
-This means data survives when the FastAPI server is restarted.
+Persistence was tested by creating a task through the API:
+
+```text
+Persistence Test
+```
+
+The task was verified in PostgreSQL using:
+
+```powershell
+docker exec -it taskdb psql -U postgres -d tasks -c "SELECT * FROM tasks;"
+```
+
+The PostgreSQL container was then restarted:
+
+```powershell
+docker restart taskdb
+```
+
+After the restart, the task was still present in the database.
+
+The API was also restarted, and `GET /tasks` still returned the `Persistence Test` task.
+
+This proves that the data persists across a PostgreSQL container restart because the database uses the `taskdata` Docker volume.
+
+## Repository Architecture
+
+The PostgreSQL repository implementation is contained in `database.py`.
+
+The existing API routes continue to use the same database function interface.
+
+The storage implementation was changed from SQLite to PostgreSQL without changing the API routes in `main.py`.
 
 The architecture is:
 
 ```text
 Client
    ↓
-FastAPI API
+FastAPI routes
    ↓
 database.py
    ↓
-SQLite
+Psycopg
    ↓
-tasks.db
+PostgreSQL
+   ↓
+Docker volume: taskdata
 ```
 
-The API endpoints remain the same while the storage implementation has changed from in-memory data to a real database.
+This demonstrates that the storage implementation can be switched without changing the API routes.
