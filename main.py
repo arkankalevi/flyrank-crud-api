@@ -1,13 +1,13 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from supabase import create_client, Client
+
+from auth import AuthRequest, get_current_user, supabase
 
 from database import (
-    initialize_database,
     get_all_tasks,
     get_task_by_id,
     create_task,
@@ -15,39 +15,11 @@ from database import (
     delete_task,
 )
 
-from auth import AuthRequest
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends
-
-security = HTTPBearer(auto_error=False)
-
-def get_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
-    if credentials is None:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "Access token required"}
-        )
-
-    return credentials.credentials
-
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 PORT = int(os.getenv("PORT", "8000"))
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError(
-        "SUPABASE_URL and SUPABASE_KEY must be set in .env"
-    )
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 app = FastAPI()
-
-
 
 tasks = [
     {"id": 1, "title": "Learn FastAPI", "done": False},
@@ -218,30 +190,28 @@ def public_info():
     }
 
 @app.get("/protected/profile")
-def protected_profile(token: str = Depends(get_token)):
+def protected_profile(user=Depends(get_current_user)):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at
+    }
+
+@app.post("/auth/logout")
+def logout():
     try:
-        response = supabase.auth.get_user(token)
-
-        user = response.user
-
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail={"error": "Invalid or expired token"}
-            )
+        supabase.auth.sign_out()
 
         return {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at
+            "message": "Logout successful"
         }
 
     except Exception:
         raise HTTPException(
-            status_code=401,
-            detail={"error": "Invalid or expired token"}
+            status_code=400,
+            detail={"error": "Logout failed"}
         )
-    
+
 if __name__ == "__main__":
     import uvicorn
 
