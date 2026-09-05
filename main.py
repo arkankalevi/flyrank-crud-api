@@ -16,6 +16,21 @@ from database import (
 )
 
 from auth import AuthRequest
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends
+
+security = HTTPBearer(auto_error=False)
+
+def get_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Access token required"}
+        )
+
+    return credentials.credentials
 
 load_dotenv()
 
@@ -196,6 +211,36 @@ def login(auth_request: AuthRequest):
             detail={"error": "Invalid login credentials"}
         )
 
+@app.get("/public/info")
+def public_info():
+    return {
+        "message": "Welcome stranger! This info is public."
+    }
+
+@app.get("/protected/profile")
+def protected_profile(token: str = Depends(get_token)):
+    try:
+        response = supabase.auth.get_user(token)
+
+        user = response.user
+
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "Invalid or expired token"}
+            )
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "created_at": user.created_at
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Invalid or expired token"}
+        )
     
 if __name__ == "__main__":
     import uvicorn
