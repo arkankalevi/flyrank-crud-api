@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -14,6 +14,8 @@ from database import (
     update_task,
     delete_task,
 )
+
+from auth import AuthRequest
 
 load_dotenv()
 
@@ -132,6 +134,69 @@ def delete_task_endpoint(id: int):
 
     return
 
+@app.post("/auth/signup", status_code=status.HTTP_201_CREATED)
+def signup(auth_request: AuthRequest):
+    if not auth_request.email or not auth_request.password:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password are required"}
+        )
+
+    try:
+        response = supabase.auth.sign_up(
+            {
+                "email": auth_request.email,
+                "password": auth_request.password,
+            }
+        )
+
+        return {
+            "user": response.user
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Signup failed"}
+        )
+
+@app.post("/auth/login")
+def login(auth_request: AuthRequest):
+    if not auth_request.email or not auth_request.password:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Email and password are required"}
+        )
+
+    try:
+        response = supabase.auth.sign_in_with_password(
+            {
+                "email": auth_request.email,
+                "password": auth_request.password,
+            }
+        )
+
+        if not response.session:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "Invalid login credentials"}
+            )
+
+        return {
+            "access_token": response.session.access_token,
+            "refresh_token": response.session.refresh_token,
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "Invalid login credentials"}
+        )
+
+    
 if __name__ == "__main__":
     import uvicorn
 
@@ -142,3 +207,4 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=PORT,
     )
+
