@@ -167,21 +167,76 @@ docker start taskdb
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/` | Returns basic API information |
-| GET | `/health` | Checks API health |
-| GET | `/tasks` | Returns all tasks |
-| GET | `/tasks/{id}` | Returns one task |
-| POST | `/tasks` | Creates a new task |
-| PUT | `/tasks/{id}` | Updates an existing task |
-| DELETE | `/tasks/{id}` | Deletes a task |
-| POST | `/auth/signup` | Creates a new user account |
-| POST | `/auth/login` | Authenticates an existing user |
-| POST | `/auth/logout` | Logs out the current user |
-| GET | `/public/info` | Returns public information |
-| GET | `/protected/profile` | Returns the authenticated user's profile |
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| GET | `/` | Returns basic API information | No |
+| GET | `/health` | Checks API health | No |
+| GET | `/tasks` | Returns all tasks | No |
+| GET | `/tasks/{id}` | Returns one task | No |
+| POST | `/tasks` | Creates a new task | No |
+| PUT | `/tasks/{id}` | Updates an existing task | No |
+| DELETE | `/tasks/{id}` | Deletes a task | No |
+| POST | `/auth/signup` | Creates a new user account | No |
+| POST | `/auth/login` | Authenticates an existing user | No |
+| POST | `/auth/logout` | Logs out the current user | Yes |
+| GET | `/public/info` | Returns public information | No |
+| GET | `/protected/profile` | Returns the authenticated user's profile | Yes |
 
+
+## Swagger UI
+
+The API provides interactive Swagger UI documentation for testing and exploring the available API endpoints.
+
+The Swagger UI can be accessed locally at:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Swagger UI provides an interactive interface for testing the CRUD API and authentication endpoints.
+
+### Swagger UI - API Documentation
+
+The following screenshot shows the available API endpoints in Swagger UI, including CRUD operations and authentication endpoints.
+
+![Swagger UI - API Documentation](swagger1.png.png)
+
+### Swagger UI - Authentication
+
+The following screenshot shows the authentication-related endpoints, including signup, login, logout, public information, and the protected profile endpoint.
+
+![Swagger UI - Authentication](swagger2.png.png)
+
+### Using Swagger UI
+
+To test the protected endpoint:
+
+1. Start the FastAPI server.
+2. Open `http://127.0.0.1:8000/docs`.
+3. Use `POST /auth/login` with a registered account.
+4. Copy the `access_token` returned by the login endpoint.
+5. Click the `Authorize` button in Swagger UI.
+6. Enter the access token.
+7. Click `Authorize`.
+8. Open `GET /protected/profile`.
+9. Click `Try it out`.
+10. Click `Execute`.
+
+A valid access token should return:
+
+```text
+200 OK
+```
+
+Accessing the protected endpoint without a valid token should return:
+
+```text
+401 Unauthorized
+```
+
+The public endpoint can be accessed without authentication.
+
+The Swagger UI documentation allows a peer to understand and test the API without needing to inspect the source code.
 ## Authentication
 
 The API uses Supabase Authentication with JWT access tokens.
