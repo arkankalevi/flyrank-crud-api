@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-
+from fastapi.security import HTTPBearer
 from auth import AuthRequest, get_current_user, supabase
 
 from database import (
@@ -20,6 +20,8 @@ load_dotenv()
 PORT = int(os.getenv("PORT", "8000"))
 
 app = FastAPI()
+
+security = HTTPBearer()
 
 tasks = [
     {"id": 1, "title": "Learn FastAPI", "done": False},
