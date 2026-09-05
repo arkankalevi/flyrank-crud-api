@@ -18,6 +18,13 @@ The API manages a to-do task list using PostgreSQL running in Docker for persist
 - PostgreSQL database storage
 - Dockerized PostgreSQL
 - Persistent data across container and server restarts
+- User signup
+- User login
+- JWT authentication
+- Protected endpoint
+- Public endpoint
+- User logout
+- Reusable JWT authentication dependency
 
 ## Tech Stack
 
@@ -25,16 +32,19 @@ The API manages a to-do task list using PostgreSQL running in Docker for persist
 - FastAPI
 - PostgreSQL
 - Docker
+- Supabase
 - Uvicorn
 - Pydantic
 - Psycopg
 - python-dotenv
+- JWT
 
 ## Requirements
 
 - Python 3.10+
 - Git
 - Docker Desktop
+- Supabase project
 
 ## Installation
 
@@ -42,6 +52,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/arkankalevi/flyrank-crud-api
+
 cd flyrank-crud-api
 ```
 
@@ -69,8 +80,15 @@ Create a `.env` file in the project root:
 
 ```env
 DATABASE_URL=postgres://postgres:dev@localhost:5432/tasks
-   ```
-   
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_anon_key
+PORT=8000
+```
+
+Use `.env.example` as a template.
+
+Do not commit the `.env` file to Git because it contains environment-specific configuration and credentials.
+
 ## Running the API
 
 ### 1. Start PostgreSQL
@@ -106,7 +124,7 @@ Activate the virtual environment:
 Start the FastAPI server:
 
 ```powershell
-uvicorn main:app --reload
+python main.py
 ```
 
 The API will be available at:
@@ -123,7 +141,7 @@ Open the following URL in a browser:
 http://127.0.0.1:8000/docs
 ```
 
-Swagger UI can be used to test all CRUD endpoints.
+Swagger UI can be used to test all CRUD and authentication endpoints.
 
 ### 4. Stop the API
 
@@ -158,7 +176,208 @@ docker start taskdb
 | POST | `/tasks` | Creates a new task |
 | PUT | `/tasks/{id}` | Updates an existing task |
 | DELETE | `/tasks/{id}` | Deletes a task |
+| POST | `/auth/signup` | Creates a new user account |
+| POST | `/auth/login` | Authenticates an existing user |
+| POST | `/auth/logout` | Logs out the current user |
+| GET | `/public/info` | Returns public information |
+| GET | `/protected/profile` | Returns the authenticated user's profile |
 
+## Authentication
+
+The API uses Supabase Authentication with JWT access tokens.
+
+Authentication logic is separated into `auth.py` to provide reusable authentication functionality.
+
+### Signup
+
+Creates a new user account.
+
+**Endpoint:**
+
+```text
+POST /auth/signup
+```
+
+**Request body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Successful response:**
+
+```text
+201 Created
+```
+
+### Login
+
+Authenticates an existing user.
+
+**Endpoint:**
+
+```text
+POST /auth/login
+```
+
+**Request body:**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Successful response:**
+
+```text
+200 OK
+```
+
+The response contains authentication tokens:
+
+```json
+{
+  "access_token": "<access_token>",
+  "refresh_token": "<refresh_token>"
+}
+```
+
+The `access_token` is used to access protected endpoints.
+
+### Protected Profile
+
+**Endpoint:**
+
+```text
+GET /protected/profile
+```
+
+This endpoint requires a valid JWT access token.
+
+The request must include:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+**Successful response:**
+
+```text
+200 OK
+```
+
+Example:
+
+```json
+{
+  "id": "<user_id>",
+  "email": "user@example.com",
+  "created_at": "<timestamp>"
+}
+```
+
+Without a token:
+
+```text
+401 Unauthorized
+```
+
+An invalid or expired token also results in:
+
+```text
+401 Unauthorized
+```
+
+### Public Info
+
+**Endpoint:**
+
+```text
+GET /public/info
+```
+
+This endpoint does not require authentication.
+
+**Successful response:**
+
+```text
+200 OK
+```
+
+Example:
+
+```json
+{
+  "message": "Welcome stranger! This info is public."
+}
+```
+
+### Logout
+
+**Endpoint:**
+
+```text
+POST /auth/logout
+```
+
+This endpoint logs the current user out through Supabase Authentication.
+
+**Successful response:**
+
+```text
+200 OK
+```
+
+Example:
+
+```json
+{
+  "message": "Logout successful"
+}
+```
+
+## Swagger Bearer Authentication
+
+Swagger UI provides an `Authorize` button for testing protected endpoints.
+
+To test `/protected/profile`:
+
+1. Login using `POST /auth/login`.
+2. Copy the returned `access_token`.
+3. Click `Authorize` in Swagger UI.
+4. Enter the access token.
+5. Click `Authorize`.
+6. Call `GET /protected/profile`.
+7. The request should return `200 OK`.
+
+The authorization header is sent as:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Do not include a real access token in this README or commit it to Git.
+
+## Authentication Testing
+
+The authentication flow was tested using the following cases:
+
+| Test | Expected Result |
+|---|---|
+| Signup with valid credentials | `201 Created` |
+| Login with valid credentials | `200 OK` |
+| Login with incorrect password | `401 Unauthorized` |
+| Signup with empty fields | `400 Bad Request` |
+| Access protected route without token | `401 Unauthorized` |
+| Access protected route with valid token | `200 OK` |
+| Access protected route with invalid token | `401 Unauthorized` |
+| Access public route without token | `200 OK` |
+| Logout | `200 OK` |
 
 ## PostgreSQL Database
 
@@ -193,6 +412,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     done BOOLEAN NOT NULL DEFAULT FALSE
 );
 ```
+
 ## Persistence
 
 The PostgreSQL database uses a Docker volume named `taskdata` to persist data.
@@ -225,6 +445,8 @@ This proves that the data persists across a PostgreSQL container restart because
 
 The PostgreSQL repository implementation is contained in `database.py`.
 
+The authentication logic and reusable JWT verification are contained in `auth.py`.
+
 The existing API routes continue to use the same database function interface.
 
 The storage implementation was changed from SQLite to PostgreSQL without changing the API routes in `main.py`.
@@ -236,13 +458,42 @@ Client
    ↓
 FastAPI routes
    ↓
-database.py
-   ↓
-Psycopg
-   ↓
-PostgreSQL
-   ↓
-Docker volume: taskdata
-```
+   ├── Authentication routes
+   │       ↓
+   │    auth.py
+   │       ↓
+   │    Supabase Auth
+   │
+   └── CRUD routes
+           ↓
+       database.py
+           ↓
+         Psycopg
+           ↓
+       PostgreSQL
+           ↓
+       Docker volume: taskdata
 
-This demonstrates that the storage implementation can be switched without changing the API routes.
+## Error Handling
+
+The API returns appropriate HTTP status codes for common errors.
+
+### 400 Bad Request
+
+Used when request data is invalid or required authentication input is missing.
+
+### 401 Unauthorized
+
+Used when authentication credentials are missing, invalid, or expired.
+
+### 404 Not Found
+
+Used when a requested task does not exist.
+
+## Security Notes
+
+- `.env` must not be committed to Git.
+- Real Supabase credentials must not be placed in `.env.example`.
+- Real access tokens and refresh tokens must not be placed in source code or documentation.
+- Protected endpoints require a valid JWT access token.
+- Authentication is handled through Supabase Authentication.
